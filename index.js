@@ -14,9 +14,9 @@ var COLORS = [RED, BLUE, YELLOW, GREEN];
 var shapes = [];  //形状的对象数组
 //游戏开关
 var INIT_NUM = 10;  //初始复杂度
-var EACH_ROUND = 10;  //每种复杂度算一轮，一轮做10次实验
+var EACH_ROUND = 3;  //每种复杂度算一轮，一轮做10次实验
 var discoverGamePlaying = false;
-var colorGamePlaying = false;
+var perceiveGamePlaying = false;
 
 
 function Shape(shape, x, y, color) { //图形类
@@ -24,7 +24,7 @@ function Shape(shape, x, y, color) { //图形类
 	this.x = x;
 	this.y = y;
 	this.color = color;
-	this.hide = false;	//为true时隐藏该shape
+	this.originColor = color;
 	this.drawMyself = function(){
 		if (!this.hide) {
 			if (this.shape == "Circle") {
@@ -40,6 +40,18 @@ function Shape(shape, x, y, color) { //图形类
 		var dist = distance(this.x, this.y, clickX, clickY);
 		if (dist < 1.5 * R) return true;
 		else return false;
+	}
+	this.changeMyColor = function() {
+		while(true) {
+			var newColor = COLORS[(Math.floor(Math.random()*COLORS.length))];
+			if (newColor != this.color) {
+				this.color = newColor;
+				break;
+			}
+		}
+	}
+	this.changeBackMyColor = function() {
+		this.color = this.originColor;
 	}
 }
 
@@ -85,7 +97,7 @@ function distance(x1, y1, x2, y2) {
 	return dist;
 }
 
-function checkPosition(x, y) { //检查位置(x,y)是否符合要求，否->返回false
+function checkPosition(x, y) { //检查位置(x,y)是否可以画一个图形，否->返回false
 	if (x < 2*R || x > W-2*R || y < 2*R || y > H-2*R) return false;
 	for (var i = 0; i < shapes.length; i++) {
 		var dist = distance(x, y, shapes[i].x, shapes[i].y);
@@ -135,9 +147,12 @@ function whoIsClicked(x, y) {
 	return -1;
 }
 
+/*******************************
+ *        Discover Game        *
+ *******************************/
 function addOneShape() {
 	drawRandomly(1);
-	noReactionTimeout = setTimeout("whenTimeIsUp();", 5000);
+	noReactionTimeout = setTimeout("whenTimeIsUp();", TIME_THRESHOLD);
 }
 
 function removeOneShape(x) {
@@ -153,27 +168,53 @@ function startAppearringOne() { //开始等待增画一个图形
 	setTimeout("addOneShape();", appearDelay);
 }
 
+/*function testEndOfAll() {
+	var roundFinished2 = perceiveGamePlaying && (hitsList2.length == EACH_ROUND);
+	var originRoundLock = roundLock;
+	if (!roundFinished2) return;
+	if (!roundLock) { //round还没改变，
+		roundLock = true;
+		if (++round < roundTotal) { //则我来改多个游戏的全局信息
+			INIT_NUM = brr[round];
+			clearCanvas();
+			shapes = [];
+			drawRandomly(INIT_NUM); 
+			console.log("Round"+round+" by Discover Game!");
+		} else {
+			alert("Finished Discover Game!");
+		}
+	}
+	//然后再来改本游戏的信息
+	testCount = 0;
+	hitsList = [];
+	startAppearringOne();
+	clearInterval(testInterval);
+	if(originRoundLock) roundLock = false;
+}*/
+
 function endOfRound() {  //当一轮DiscoverGame结束时
 	clearTimeout(noReactionTimeout);
+	console.log("hitsList:", hitsList);
+	//testInterval = setInterval("testEndOfAll();", 1000);
+	
 	if (++round < roundTotal) {
 		INIT_NUM = brr[round];
 		testCount = 0;
 		clearCanvas();
 		shapes = [];
-		console.log(hitsList);
 		hitsList = [];
 		drawRandomly(INIT_NUM); 
 		console.log(shapes);
 		startAppearringOne();
 	} else {
-		alert("Finished Discovering Game!");
+		alert("Finished Discover Game!");
 	}
 }
 
 function whenTimeIsUp() {  //当被试超过规定时限未点击新增图形时的操作
-	console.log("Reaction Time: 5000ms");
+	console.log("Reaction Time: " + TIME_THRESHOLD + "ms");
 	hitsList[hitsList.length] = 0;
-	removeOneShape(shapes.length-1);
+	removeOneShape(INIT_NUM);
 	if (++testCount < EACH_ROUND) {
 		startAppearringOne();
 	} else {
@@ -181,18 +222,102 @@ function whenTimeIsUp() {  //当被试超过规定时限未点击新增图形时
 	}
 }
 
+/*******************************
+ *        Perceive Game        *
+ *******************************/
+ 
+function changeOneColor() {
+	whoseColorIsChanged = Math.floor(Math.random()*INIT_NUM);
+	shapes[whoseColorIsChanged].changeMyColor();
+	clearCanvas();
+	drawAllShapes();
+	noReactionTimeout2 = setTimeout("whenTimeIsUp2();", TIME_THRESHOLD2);
+}
+
+function changeBackOneColor(x) {
+	shapes[x].changeBackMyColor();
+	clearCanvas();
+	drawAllShapes();
+}
+ 
+function startColoringOne() { //开始等待改变一个图形的颜色
+	startTime2 = new Date().getTime();
+	appearDelay2 = Math.random()*2500+500;
+	clearTimeout(noReactionTimeout2);
+	setTimeout("changeOneColor();", appearDelay2);
+}
+
+/*function testEndOfAll2() {
+	var roundFinished = discoverGamePlaying && (hitsList.length == EACH_ROUND);
+	var originRoundLock = roundLock;
+	if (!roundFinished) return;
+	if (!roundLock) { //round还没改变，
+		roundLock = true;
+		if (++round < roundTotal) { //则我来改多个游戏的全局信息
+			INIT_NUM = brr[round];
+			clearCanvas();
+			shapes = [];
+			drawRandomly(INIT_NUM); 
+			console.log("Round"+round+" by Perceive Game!");
+		} else {
+			alert("Finished Perceive Game!");
+		}
+	}
+	//然后再来改本游戏的信息
+	testCount2 = 0;
+	hitsList2 = [];
+	startColoringOne();
+	clearInterval(testInterval2);
+	if(originRoundLock) roundLock = false;
+}*/
+
+function endOfRound2() {
+	clearTimeout(noReactionTimeout2);
+	console.log("hitsList2:", hitsList2);
+	//testInterval2 = setInterval("testEndOfAll2();", 1000);
+	if (++round < roundTotal) {
+		INIT_NUM = brr[round];
+		testCount2 = 0;
+		clearCanvas();
+		shapes = [];
+		hitsList2 = [];
+		drawRandomly(INIT_NUM); 
+		console.log(shapes);
+		startColoringOne();
+	} else {
+		alert("Finished Perceive Game!");
+	}
+}
+
+function whenTimeIsUp2() {
+	console.log("Reaction Time2: " + TIME_THRESHOLD2 + "ms");
+	hitsList2[hitsList2.length] = 0;
+	changeBackOneColor(whoseColorIsChanged);
+	if (++testCount2 < EACH_ROUND) {
+		startColoringOne();
+	} else {
+		endOfRound2();
+	}
+}
+
 
 //************************* 游戏主体 *************************
+var arr =[5, 10];
+var brr = [];  //打乱后的复杂度序列，如图形个数为10个、40个、30个、20个
+var roundTotal = arr.length;
+var round = 0;
+//var roundLock = false;
 
+/*******************************
+ *        Discover Game        *
+ *******************************/
 var hitsList = [];
 var startTime = new Date().getTime();
 var appearDelay;
 var testCount = 0;
 var noReactionTimeout = undefined;
-var round = 0;
-var arr =[10, 20];
-var brr = [];  //打乱后的复杂度序列，如图形个数为10个、40个、30个、20个
-var roundTotal = arr.length;
+var TIME_THRESHOLD = 5000;
+var testInterval = undefined;
 
 
 function playDiscoverGame() {
@@ -216,9 +341,46 @@ function playDiscoverGame() {
 				endOfRound();
 			}
 		}
-	});
-	
+	});	
 }
+
+/*******************************
+ *        Perceive Game        *
+ *******************************/
+
+var whoseColorIsChanged = -1;
+var hitsList2 = [];
+var startTime2 = new Date().getTime();
+var appearDelay2;
+var testCount2 = 0;
+var noReactionTimeout2 = undefined;
+var TIME_THRESHOLD2 = 5000;
+var testInterval2 = undefined;
+ 
+function playPerceiveGame() {
+	perceiveGamePlaying = true;
+	
+	startColoringOne();
+	
+	c.addEventListener('click', function(e){
+		var x = e.offsetX;
+		var y = e.offsetY;
+		var clickedI = whoIsClicked(x, y);
+		if (clickedI == whoseColorIsChanged) { //点中了刚改变颜色的图形
+			hitsList2[hitsList2.length] = 1;
+			var hitTime2 = new Date().getTime();
+			var reactionTime2 = hitTime2 - startTime2 - appearDelay2;
+			console.log("Reaction Time2: " + reactionTime2.toString() + "ms");
+			changeBackOneColor(clickedI);
+			if (++testCount2 < EACH_ROUND) {
+				startColoringOne();
+			} else {
+				endOfRound2();
+			}
+		}
+	});	
+}
+
 
 function init() {
 	c.height = c.height;
@@ -238,7 +400,8 @@ function init() {
 
 function letsPlay() {
 	init();
-	playDiscoverGame();
+	//playDiscoverGame();
+	playPerceiveGame();
 }
 
 
