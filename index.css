@@ -1,0 +1,45 @@
+#option1{
+    position:fixed;
+	top:50px;
+    right:280px;
+    width:50px;
+    height:35px;
+}
+
+#option2{
+    position:fixed;
+	top:50px;
+    right:220px;
+    width:50px;
+    height:35px;
+}
+
+#option3{
+    position:fixed;
+	top:50px;
+    right:160px;
+    width:50px;
+    height:35px;
+}
+
+#option4{
+    position:fixed;
+	top:50px;
+    right:100px;
+    width:50px;
+    height:35px;
+}
+
+#option5{
+    position:fixed;
+	top:50px;
+    right:40px;
+    width:50px;
+    height:35px;
+}
+
+#info{
+	position:fixed;
+	top:0px;
+    right:70px;
+}

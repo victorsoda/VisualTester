@@ -11,12 +11,14 @@ var BLUE = 'rgb(0,255,255)';
 var YELLOW = 'rgb(255,255,0)';
 var GREEN = 'rgb(0,255,0)';
 var COLORS = [RED, BLUE, YELLOW, GREEN];
+var COLOR_NAMES = ["RED", "BLUE", "YELLOW", "GREEN"];
 var shapes = [];  //形状的对象数组
 //游戏开关
 var INIT_NUM = 10;  //初始复杂度
-var EACH_ROUND = 3;  //每种复杂度算一轮，一轮做10次实验
+var EACH_ROUND = 10;  //每种复杂度算一轮，一轮做10次实验
 var discoverGamePlaying = false;
 var perceiveGamePlaying = false;
+var searchGamePlaying = false;
 
 
 function Shape(shape, x, y, color) { //图形类
@@ -163,7 +165,7 @@ function removeOneShape(x) {
 
 function startAppearringOne() { //开始等待增画一个图形
 	startTime = new Date().getTime();
-	appearDelay = Math.random()*2500+500;
+	appearDelay = Math.random()*4500+500;
 	clearTimeout(noReactionTimeout);
 	setTimeout("addOneShape();", appearDelay);
 }
@@ -176,7 +178,7 @@ function endOfRound() {  //当一轮DiscoverGame结束时
 }
 
 function whenTimeIsUp() {  //当被试超过规定时限未点击新增图形时的操作
-	console.log("Reaction Time: " + TIME_THRESHOLD + "ms");
+	console.log("Missed Discovering! Reaction Time: " + TIME_THRESHOLD + "ms");
 	hitsList[hitsList.length] = TIME_THRESHOLD;
 	removeOneShape(INIT_NUM);
 	if (++testCount < EACH_ROUND) {
@@ -207,7 +209,7 @@ function changeBackOneColor(x) {
  
 function startColoringOne() { //开始等待改变一个图形的颜色
 	startTime2 = new Date().getTime();
-	appearDelay2 = 3000; //Math.random()*2500+500;
+	appearDelay2 = Math.random()*4500+500;
 	clearTimeout(noReactionTimeout2);
 	setTimeout("changeOneColor();", appearDelay2);
 }
@@ -220,7 +222,7 @@ function endOfRound2() {
 }
 
 function whenTimeIsUp2() {
-	console.log("Reaction Time2: " + TIME_THRESHOLD2 + "ms");
+	console.log("Missed Perceiving! Reaction Time2: " + TIME_THRESHOLD2 + "ms");
 	hitsList2[hitsList2.length] = TIME_THRESHOLD2;
 	changeBackOneColor(whoseColorIsChanged);
 	whoseColorIsChanged = -1;
@@ -234,7 +236,7 @@ function whenTimeIsUp2() {
 
 
 //************************* 游戏主体 *************************
-var arr =[5, 10];
+var arr =[10, 20];
 var brr = [];  //打乱后的复杂度序列，如图形个数为10个、40个、30个、20个
 var roundTotal = arr.length;
 var round = 0;
@@ -264,7 +266,7 @@ function playDiscoverGame() {
 		if (clickedI == INIT_NUM) { //点中了刚出现的图形
 			var hitTime = new Date().getTime();
 			var reactionTime = hitTime - startTime - appearDelay;
-			console.log("Reaction Time: " + reactionTime.toString() + "ms");
+			console.log("You've Discovered it! Reaction Time: " + reactionTime.toString() + "ms");
 			hitsList[hitsList.length] = reactionTime;
 			removeOneShape(clickedI);
 			if (++testCount < EACH_ROUND) {
@@ -302,7 +304,7 @@ function playPerceiveGame() {
 		if (clickedI == whoseColorIsChanged) { //点中了刚改变颜色的图形
 			var hitTime2 = new Date().getTime();
 			var reactionTime2 = hitTime2 - startTime2 - appearDelay2;
-			console.log("Reaction Time2: " + reactionTime2.toString() + "ms");
+			console.log("You've Perceived it! Reaction Time2: " + reactionTime2.toString() + "ms");
 			hitsList2[hitsList2.length] = reactionTime2;
 			changeBackOneColor(whoseColorIsChanged);
 			whoseColorIsChanged = -1;
@@ -315,14 +317,161 @@ function playPerceiveGame() {
 	});	
 }
 
+/*******************************
+ *         Search Game         *
+ *******************************/
+ 
+var option1 = document.getElementById("option1");
+var option2 = document.getElementById("option2");
+var option3 = document.getElementById("option3");
+var option4 = document.getElementById("option4");
+var option5 = document.getElementById("option5");
+var options = [option1, option2, option3, option4, option5];
+var info = document.getElementById("info");
+for (var i = 0; i < 5; i++) {
+	options[i].style.display="none";
+}
+var question = "";
+var answer = -333;	//正确答案的值
+var answers = [];	//5个选项
+var answerOption = -3333; 	//记录正确答案是哪一个选项（1~5）
+var questionList = [];		//记录该轮的所有问题
+var hitsList3 = [];
+var startTime3 = new Date().getTime();
+var testCount3 = 0;
+var noReactionTimeout3 = undefined;
+var TIME_THRESHOLD3 = 10000;
+var searchRoundOver = false;
+var EACH_ROUND3 = 3;	//每轮提三个问题
+
+function colorCount(color) {
+	var count = 0;
+	for(var i = 0; i < shapes.length; i++) {
+		if(shapes[i].color == color) {
+			count++;
+		}
+	}
+	return count;
+}
+
+function shapeCount(shape) {
+	var count = 0;
+	for(var i = 0; i < shapes.length; i++) {
+		if(shapes[i].shape == shape) {
+			count++;
+		}
+	}
+	return count;
+}
+
+function randomQuestionAndAnswersThenShowThem() { //若随机到了出现过的问题，需要重新随机
+	var askColorOrShape = Math.floor(Math.random()*2);
+	if (askColorOrShape == 0) {
+		var which_color = Math.floor(Math.random()*COLORS.length);
+		var color_name = COLOR_NAMES[which_color];
+		var color = COLORS[which_color];
+		question = "How many " + color_name + " shapes you can see?";
+		answer = colorCount(color);
+	} else {
+		var shape = randomShape();
+		question = "How many " + shape + "s you can see?";
+		answer = shapeCount(shape);
+	}
+	for (var k = 0; k < questionList.length; k++) {
+		if (questionList[k] == question) {
+			randomQuestionAndAnswersThenShowThem();
+			return;
+		}
+	}
+	questionList[questionList.length] = question;
+	var answers = [answer-2, answer-1, answer, answer+1, answer+2];
+	var delta = Math.floor(Math.random()*5)-2;
+	for (var j = 0; j < answers.length; j++) { //答案平移
+		answers[j] += delta;
+	}
+	if(answers[0] < 0) {	//特殊情况
+		for (var j = 0; j < answers.length; j++) {
+			answers[j] = j;
+		}
+	}
+	for (var j = 0; j < answers.length; j++) { //answerOption
+		if(answers[j]==answer) {
+			answerOption = j+1; 
+			break;
+		}
+	}
+	//"ShowThem"
+	for (var j = 0; j < 5; j++) {
+		options[j].innerHTML = answers[j];
+	}
+	info.innerHTML = question;
+	//计时
+	startTime3 = new Date().getTime();
+	clearTimeout(noReactionTimeout3);
+	noReactionTimeout3 = setTimeout("whenTimeIsUp3();", TIME_THRESHOLD3);
+}
+
+function whenTimeIsUp3() {
+	console.log("Missed Options! Reaction Time3: " + TIME_THRESHOLD3 + "ms");
+	hitsList3[hitsList3.length] = TIME_THRESHOLD3;
+	if (++testCount3 < EACH_ROUND3) {
+		randomQuestionAndAnswersThenShowThem();
+	} else {
+		endOfRound3();
+	}
+}
+
+function endOfRound3() {
+	clearTimeout(noReactionTimeout3);
+	console.log("hitsList3:", hitsList3);
+	alert("Search Round"+(round+1)+" Finished!");
+	searchRoundOver = true;
+}
+
+function doWhenOpt(num) {
+	var hitTime3 = new Date().getTime();
+	var reactionTime3 = hitTime3 - startTime3;
+	if(answerOption==num) {
+		console.log("Correct Option! Reaction Time3: " + reactionTime3.toString() + "ms");
+		hitsList3[hitsList3.length] = reactionTime3;
+	} else {
+		console.log("Wrong Option! Reaction Time3: " + reactionTime3.toString() + "ms");
+		hitsList3[hitsList3.length] = -reactionTime3;
+	}
+	if (++testCount3 < EACH_ROUND3) {
+		randomQuestionAndAnswersThenShowThem();
+	} else {
+		endOfRound3();
+	}
+}
+
+function opt1() { doWhenOpt(1); }
+function opt2() { doWhenOpt(2); }
+function opt3() { doWhenOpt(3); }
+function opt4() { doWhenOpt(4); }
+function opt5() { doWhenOpt(5); }
+ 
+function playSearchGame() {
+	searchGamePlaying = true;
+	for (var i = 0; i < 5; i++) {
+		options[i].style.display="block";
+	}
+	randomQuestionAndAnswersThenShowThem();
+}
+ 
+ 
+
 function nextRound() {
 	var u1 = false;
 	var u2 = false;
+	var u3 = false;
 	if (!discoverGamePlaying) u1 = true;
 	if (!perceiveGamePlaying) u2 = true;
+	if (!searchGamePlaying) u3 = true;
 	if (discoverGamePlaying && discoverRoundOver) u1 = true;
 	if (perceiveGamePlaying && perceiveRoundOver) u2 = true;
-	if (u1 && u2) {
+	if (searchGamePlaying && searchRoundOver) u3 = true;
+	if (u1 && u2 && u3) {
 		console.log("next round!");
 		if (++round < roundTotal) {
 			INIT_NUM = brr[round];
@@ -341,6 +490,13 @@ function nextRound() {
 				hitsList2 = [];
 				startColoringOne();
 				perceiveRoundOver = false;
+			}
+			if (searchGamePlaying) {
+				testCount3 = 0;
+				hitsList3 = [];
+				questionList = [];
+				randomQuestionAndAnswersThenShowThem();
+				searchRoundOver = false;
 			}
 		} else {
 			alert("Mission Complete!");
@@ -363,13 +519,15 @@ function init() {
 	drawRandomly(INIT_NUM); 
 	console.log(shapes);
 	document.getElementById("nextRound").removeAttribute("disabled");
+	document.getElementById("startGame").setAttribute("disabled", true);
 }
 
 
 function letsPlay() {
 	init();
 	playDiscoverGame();
-	playPerceiveGame();
+	//playPerceiveGame();
+	playSearchGame();
 }
 
 
