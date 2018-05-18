@@ -44,6 +44,12 @@
     right:70px;
 }
 
+#info5{
+	position:fixed;
+	top:-15px;
+    right:450px;
+}
+
 #myCanvas{
 	position:fixed;
 	top:80px;

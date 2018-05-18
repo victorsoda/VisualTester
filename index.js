@@ -29,7 +29,7 @@ var perceiveGamePlaying = false;
 var searchGamePlaying = false;
 var checkGamePlaying = false;
 var trackGamePlaying = false;
-var arr =[40];
+var arr =[15];
 var brr = [];  //打乱后的复杂度序列，如图形个数为10个、40个、30个、20个
 var roundTotal = arr.length;
 var round = 0;
@@ -633,13 +633,11 @@ function whenTimeIsUp5(sub) {
 } 
  
 function randomNum(num1,num2){  
-	return Math.random()*(num2-num1+1)+num1;  
+	return Math.random()*(num2-num1)+num1;  
 }  
  
 var knight = new Shape('Circle', W/2, H/2, PURPLE);
 var moveInterval = undefined;
-var speedX = randomNum(2,3)/2;
-var speedY = randomNum(2,3)/2;
 var crushList = []; //存储每个被撞形状在shapes数组的下标
 var timeoutList = [];  //存储每个被撞形状对应的setTimeout变量
 var isTimeOutList = []; //记录该被撞形状是否确实超时了（或者被点中过了）
@@ -649,33 +647,26 @@ var hitsList5 = [];
 var startTimeList = [];
 var trackRoundOver = false;
 var trackCount = 0;
+var theta = randomNum(0, 2 * Math.PI);
+var v = 6;
+var info5 = document.getElementById("info5");
+
 
 function knightMove() {
-	knight.x += speedX;
-	knight.y += speedY;
-	var coin = Math.random();
-	if(coin < 0.1) {
-		var dSpeedX = Math.random()*0.4;
-		var dSpeedY = Math.random()*0.4;
-		if(speedX > 0) speedX += dSpeedX;
-		else speedX -= dSpeedX;
-		if(speedY > 0) speedY += dSpeedY;
-		else speedY -= dSpeedY;
-	} 
-	if (coin > 0.8) {
-		var dSpeedX = Math.random()*0.2;
-		var dSpeedY = Math.random()*0.2;
-		if(speedX > 0) speedX -= dSpeedX;
-		else speedX += dSpeedX;
-		if(speedY > 0) speedY -= dSpeedY;
-		else speedY += dSpeedY;
-	}
+	
+	var coin = randomNum(-6, 6) * Math.PI / 180;
+	//console.log("coin:",coin*180/Math.PI);
+	theta += coin;
+	
 	if (knight.x > W-R || knight.x < R) {
-		speedX = -speedX;
+		theta = Math.PI - theta;
 	}
 	if (knight.y > H-R || knight.y < R) {
-		speedY = -speedY;
+		theta = -theta;
 	}
+	knight.x += v * Math.cos(theta);
+	knight.y += v * Math.sin(theta);
+	
 	reDraw();
 	knight.drawMyself();
 	var flag = false;
@@ -688,13 +679,14 @@ function knightMove() {
 				crushWho = i;
 				crushList.push(i);
 				console.log(crushList);
-				info.innerHTML = "Crush Count: "+crushList.length+"<br>Track Count: "+trackCount;
+				info5.innerHTML = "Crush Count: "+crushList.length+"<br>Track Count: "+trackCount;
 				var timeout = setTimeout("whenTimeIsUp5("+(crushList.length-1)+");", TIME_THRESHOLD5);
 				timeoutList.push(timeout);
 				isTimeOutList.push(false);
 				startTimeList.push(new Date().getTime());
 				if(crushList.length == 10) {	//骑士小球撞到第10个图形时停止
 					clearInterval(moveInterval);
+					setTimeout("reDraw();", 500);
 				}
 			}
 		}
@@ -708,11 +700,7 @@ function knightMove() {
 function playTrackGame() {
 	trackGamePlaying = true;
 	knight.drawMyself();
-	var coinX = Math.random();
-	var coinY = Math.random();
-	if (coinX < 0.5) speedX = -speedX;
-	if (coinY < 0.5) speedY = -speedY;
-
+	
 	moveInterval = setInterval("knightMove();", 25);
 	c.addEventListener('click', function(e){
 		var x = e.offsetX;
@@ -725,7 +713,7 @@ function playTrackGame() {
 				var reactionTime = hitTime - startTimeList[i];
 				console.log("Nice track! Reaction Time: " + reactionTime.toString() + "ms")
 				trackCount++;
-				info.innerHTML = "Crush Count: "+crushList.length+"<br>Track Count: "+trackCount;
+				info5.innerHTML = "Crush Count: "+crushList.length+"<br>Track Count: "+trackCount;
 				hitsList5[i] = reactionTime;
 				isTimeOutList[i] = true;
 				clearTimeout(timeoutList[i]);
@@ -743,15 +731,18 @@ function nextRound() {
 	var u2 = false;
 	var u3 = false;
 	var u4 = false;
+	var u5 = false;
 	if (!discoverGamePlaying) u1 = true;
 	if (!perceiveGamePlaying) u2 = true;
 	if (!searchGamePlaying) u3 = true;
 	if (!checkGamePlaying) u4 = true;
+	if (!trackGamePlaying) u5 = true;
 	if (discoverGamePlaying && discoverRoundOver) u1 = true;
 	if (perceiveGamePlaying && perceiveRoundOver) u2 = true;
 	if (searchGamePlaying && searchRoundOver) u3 = true;
 	if (checkGamePlaying && checkRoundOver) u4 = true;
-	if (u1 && u2 && u3 && u4) {
+	if (trackGamePlaying && trackRoundOver) u5 = true;
+	if (u1 && u2 && u3 && u4 && u5) {
 		console.log("next round!");
 		if (++round < roundTotal) {
 			INIT_NUM = brr[round];
@@ -784,6 +775,22 @@ function nextRound() {
 				}
 				startCheckGame();
 				checkRoundOver = false;
+			}
+			if (trackGamePlaying) {
+				crushList = [];
+				hitsList5 = [];
+				timeoutList = []; 
+				isTimeOutList = []; 
+				crushWho = -1;
+				startTimeList = [];
+				trackRoundOver = false;
+				trackCount = 0;
+				theta = randomNum(0, 2 * Math.PI);
+				info5.innerHTML = "Crush Count: "+crushList.length+"<br>Track Count: "+trackCount;
+				knight.x = W/2;
+				knight.y = H/2;
+				knight.drawMyself();
+				moveInterval = setInterval("knightMove();", 25);
 			}
 		} else {
 			alert("Mission Complete!");
@@ -818,7 +825,7 @@ function letsPlay() {
 	init();
 	//playDiscoverGame();
 	//playPerceiveGame();
-	//playSearchGame();
+	playSearchGame();
 	//playCheckGame();
 	playTrackGame();
 }
