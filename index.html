@@ -19,6 +19,21 @@
 			<button id="option4" onclick = opt4()>option4</button>
 			<button id="option5" onclick = opt5()>option5</button>
 		</div>
+		<div id="checkGameInputs">
+			<div id="checkboxesRow1" style="color:white">
+				<input type="checkbox" name="test" value="1"/><span>1-1</span>
+				<input type="checkbox" name="test" value="2"/><span>1-2</span>
+				<input type="checkbox" name="test" value="3"/><span>1-3</span>
+			</div>
+			<div id="checkboxesRow2" style="color:white">
+				<input type="checkbox" name="test" value="4"/><span>2-1</span>
+				<input type="checkbox" name="test" value="5"/><span>2-2</span>
+				<input type="checkbox" name="test" value="6"/><span>2-3</span>
+			</div>
+			<div id="checkboxSubmit" >
+				<input type='button' value='Submit' onclick="doWhenCheckGameSubmit()"/>
+			</div>
+		</div>
 		<canvas id="myCanvas" width="1400" height="1000">
 		Your browser does not support the canvas element.
 		</canvas>

@@ -1,24 +1,39 @@
-
+Array.prototype.contains = function ( needle ) {
+  for (i in this) {
+    if (this[i] == needle) return true;
+  }
+  return false;
+}
 
 var c = document.getElementById("myCanvas");
 var ctx = c.getContext("2d");
 //画形状用的全局变量
 var W = 1300; //document.body.clientWidth;
-var H = 700;  //document.body.clientHeight;
+var H = 660;  //document.body.clientHeight;
 var R = 20;   //圆形的半径，以确定各图形的大小
 var RED = 'rgb(255,0,0)';
 var BLUE = 'rgb(0,255,255)';
 var YELLOW = 'rgb(255,255,0)';
 var GREEN = 'rgb(0,255,0)';
+var WHITE = 'rgb(255,255,255)';
 var COLORS = [RED, BLUE, YELLOW, GREEN];
 var COLOR_NAMES = ["RED", "BLUE", "YELLOW", "GREEN"];
 var shapes = [];  //形状的对象数组
-//游戏开关
+//游戏全局变量
 var INIT_NUM = 10;  //初始复杂度
 var EACH_ROUND = 10;  //每种复杂度算一轮，一轮做10次实验
+var EACH_ROUND3 = 3;	//每轮提3个问题，必须<=7
 var discoverGamePlaying = false;
 var perceiveGamePlaying = false;
 var searchGamePlaying = false;
+var checkGamePlaying = false;
+var trackGamePlaying = false;
+var arr =[10, 20];
+var brr = [];  //打乱后的复杂度序列，如图形个数为10个、40个、30个、20个
+var roundTotal = arr.length;
+var round = 0;
+var xNum = 3;	
+var yNum = 2;	//将整个Canvas划分成2行3列共6个区域
 
 
 function Shape(shape, x, y, color) { //图形类
@@ -27,6 +42,19 @@ function Shape(shape, x, y, color) { //图形类
 	this.y = y;
 	this.color = color;
 	this.originColor = color;
+	this.getMyArea = function() {
+		var xLen = W/xNum;
+		var yLen = H/yNum;
+		for(var i = 0; i < xNum; i++) {
+			for(var j = 0; j < yNum; j++) {
+				if(i*xLen < this.x && this.x < (i+1)*xLen && 
+				   j*yLen < this.y && this.y < (j+1)*yLen) {
+					   return i + j*xNum + 1;
+				   }
+			}
+		}
+	}
+	this.getMyArea();
 	this.drawMyself = function(){
 		if (!this.hide) {
 			if (this.shape == "Circle") {
@@ -100,7 +128,9 @@ function distance(x1, y1, x2, y2) {
 }
 
 function checkPosition(x, y) { //检查位置(x,y)是否可以画一个图形，否->返回false
-	if (x < 2*R || x > W-2*R || y < 2*R || y > H-2*R) return false;
+	if (x < 2*R || x > W-2*R || y < 2*R || y > H-2*R) return false; //离边界太近
+	//if (x > W * 2 / 3 && y < H / 4) return false;
+	if (Math.abs(x - W/3) < 2*R || Math.abs(x - W*2/3) < 2*R || Math.abs(y - H/2) < 2*R) return false; //离区域分界线太近
 	for (var i = 0; i < shapes.length; i++) {
 		var dist = distance(x, y, shapes[i].x, shapes[i].y);
 		if (dist < 3 * R) return false;
@@ -149,6 +179,14 @@ function whoIsClicked(x, y) {
 	return 999;
 }
 
+function reDraw() {
+	clearCanvas();
+	drawAllShapes();
+	if (checkGamePlaying) {
+		drawBoarders();
+	}
+}
+
 /*******************************
  *        Discover Game        *
  *******************************/
@@ -159,8 +197,7 @@ function addOneShape() {
 
 function removeOneShape(x) {
 	shapes.splice(x, 1);
-	clearCanvas();
-	drawAllShapes();
+	reDraw();
 }
 
 function startAppearringOne() { //开始等待增画一个图形
@@ -196,15 +233,13 @@ function whenTimeIsUp() {  //当被试超过规定时限未点击新增图形时
 function changeOneColor() {
 	whoseColorIsChanged = Math.floor(Math.random()*INIT_NUM);
 	shapes[whoseColorIsChanged].changeMyColor();
-	clearCanvas();
-	drawAllShapes();
+	reDraw();
 	noReactionTimeout2 = setTimeout("whenTimeIsUp2();", TIME_THRESHOLD2);
 }
 
 function changeBackOneColor(x) {
 	shapes[x].changeBackMyColor();
-	clearCanvas();
-	drawAllShapes();
+	reDraw();
 }
  
 function startColoringOne() { //开始等待改变一个图形的颜色
@@ -233,13 +268,122 @@ function whenTimeIsUp2() {
 	}
 }
 
+/*******************************
+ *         Search Game         *
+ *******************************/
+
+function colorCount(color) {
+	var count = 0;
+	for(var i = 0; i < shapes.length; i++) {
+		if(shapes[i].originColor == color) {
+			count++;
+		}
+	}
+	return count;
+}
+
+function shapeCount(shape) {
+	var count = 0;
+	for(var i = 0; i < INIT_NUM; i++) {
+		if(shapes[i].shape == shape) {
+			count++;
+		}
+	}
+	return count;
+}
+
+function randomQuestionAndAnswersThenShowThem() { //若随机到了出现过的问题，需要重新随机
+	var askColorOrShape = Math.floor(Math.random()*2);
+	if (askColorOrShape == 0) {
+		var which_color = Math.floor(Math.random()*COLORS.length);
+		var color_name = COLOR_NAMES[which_color];
+		var color = COLORS[which_color];
+		question = "How many " + color_name + " shapes you can see?";
+		answer = colorCount(color);
+	} else {
+		var shape = randomShape();
+		question = "How many " + shape + "s you can see?";
+		answer = shapeCount(shape);
+	}
+	for (var k = 0; k < questionList.length; k++) {
+		if (questionList[k] == question) {
+			randomQuestionAndAnswersThenShowThem();
+			return;
+		}
+	}
+	questionList[questionList.length] = question;
+	var answers = [answer-2, answer-1, answer, answer+1, answer+2];
+	var delta = Math.floor(Math.random()*5)-2;
+	for (var j = 0; j < answers.length; j++) { //答案平移
+		answers[j] += delta;
+	}
+	if(answers[0] < 0) {	//特殊情况
+		for (var j = 0; j < answers.length; j++) {
+			answers[j] = j;
+		}
+	}
+	for (var j = 0; j < answers.length; j++) { //answerOption
+		if(answers[j]==answer) {
+			answerOption = j+1; 
+			break;
+		}
+	}
+	//"ShowThem"
+	for (var j = 0; j < 5; j++) {
+		options[j].innerHTML = answers[j];
+	}
+	info.innerHTML = question;
+	//计时
+	startTime3 = new Date().getTime();
+	clearTimeout(noReactionTimeout3);
+	noReactionTimeout3 = setTimeout("whenTimeIsUp3();", TIME_THRESHOLD3);
+}
+
+function whenTimeIsUp3() {
+	console.log("Missed Options! Reaction Time3: " + TIME_THRESHOLD3 + "ms");
+	alert("You've Missed One Question!");
+	hitsList3[hitsList3.length] = TIME_THRESHOLD3;
+	if (++testCount3 < EACH_ROUND3) {
+		randomQuestionAndAnswersThenShowThem();
+	} else {
+		endOfRound3();
+	}
+}
+
+function endOfRound3() {
+	clearTimeout(noReactionTimeout3);
+	console.log("hitsList3:", hitsList3);
+	alert("Search Round"+(round+1)+" Finished!");
+	searchRoundOver = true;
+}
+
+function doWhenOpt(num) {
+	var hitTime3 = new Date().getTime();
+	var reactionTime3 = hitTime3 - startTime3;
+	if(answerOption==num) {
+		console.log("Correct Option! Reaction Time3: " + reactionTime3.toString() + "ms");
+		hitsList3[hitsList3.length] = reactionTime3;
+	} else {
+		console.log("Wrong Option! Reaction Time3: " + reactionTime3.toString() + "ms");
+		hitsList3[hitsList3.length] = -reactionTime3;
+	}
+	if (++testCount3 < EACH_ROUND3) {
+		randomQuestionAndAnswersThenShowThem();
+	} else {
+		endOfRound3();
+	}
+}
+
+function opt1() { doWhenOpt(1); }
+function opt2() { doWhenOpt(2); }
+function opt3() { doWhenOpt(3); }
+function opt4() { doWhenOpt(4); }
+function opt5() { doWhenOpt(5); }
+
 
 
 //************************* 游戏主体 *************************
-var arr =[10, 20];
-var brr = [];  //打乱后的复杂度序列，如图形个数为10个、40个、30个、20个
-var roundTotal = arr.length;
-var round = 0;
+
 
 /*******************************
  *        Discover Game        *
@@ -340,116 +484,9 @@ var hitsList3 = [];
 var startTime3 = new Date().getTime();
 var testCount3 = 0;
 var noReactionTimeout3 = undefined;
-var TIME_THRESHOLD3 = 10000;
+var TIME_THRESHOLD3 = 1000000;
 var searchRoundOver = false;
-var EACH_ROUND3 = 3;	//每轮提三个问题
 
-function colorCount(color) {
-	var count = 0;
-	for(var i = 0; i < shapes.length; i++) {
-		if(shapes[i].color == color) {
-			count++;
-		}
-	}
-	return count;
-}
-
-function shapeCount(shape) {
-	var count = 0;
-	for(var i = 0; i < shapes.length; i++) {
-		if(shapes[i].shape == shape) {
-			count++;
-		}
-	}
-	return count;
-}
-
-function randomQuestionAndAnswersThenShowThem() { //若随机到了出现过的问题，需要重新随机
-	var askColorOrShape = Math.floor(Math.random()*2);
-	if (askColorOrShape == 0) {
-		var which_color = Math.floor(Math.random()*COLORS.length);
-		var color_name = COLOR_NAMES[which_color];
-		var color = COLORS[which_color];
-		question = "How many " + color_name + " shapes you can see?";
-		answer = colorCount(color);
-	} else {
-		var shape = randomShape();
-		question = "How many " + shape + "s you can see?";
-		answer = shapeCount(shape);
-	}
-	for (var k = 0; k < questionList.length; k++) {
-		if (questionList[k] == question) {
-			randomQuestionAndAnswersThenShowThem();
-			return;
-		}
-	}
-	questionList[questionList.length] = question;
-	var answers = [answer-2, answer-1, answer, answer+1, answer+2];
-	var delta = Math.floor(Math.random()*5)-2;
-	for (var j = 0; j < answers.length; j++) { //答案平移
-		answers[j] += delta;
-	}
-	if(answers[0] < 0) {	//特殊情况
-		for (var j = 0; j < answers.length; j++) {
-			answers[j] = j;
-		}
-	}
-	for (var j = 0; j < answers.length; j++) { //answerOption
-		if(answers[j]==answer) {
-			answerOption = j+1; 
-			break;
-		}
-	}
-	//"ShowThem"
-	for (var j = 0; j < 5; j++) {
-		options[j].innerHTML = answers[j];
-	}
-	info.innerHTML = question;
-	//计时
-	startTime3 = new Date().getTime();
-	clearTimeout(noReactionTimeout3);
-	noReactionTimeout3 = setTimeout("whenTimeIsUp3();", TIME_THRESHOLD3);
-}
-
-function whenTimeIsUp3() {
-	console.log("Missed Options! Reaction Time3: " + TIME_THRESHOLD3 + "ms");
-	hitsList3[hitsList3.length] = TIME_THRESHOLD3;
-	if (++testCount3 < EACH_ROUND3) {
-		randomQuestionAndAnswersThenShowThem();
-	} else {
-		endOfRound3();
-	}
-}
-
-function endOfRound3() {
-	clearTimeout(noReactionTimeout3);
-	console.log("hitsList3:", hitsList3);
-	alert("Search Round"+(round+1)+" Finished!");
-	searchRoundOver = true;
-}
-
-function doWhenOpt(num) {
-	var hitTime3 = new Date().getTime();
-	var reactionTime3 = hitTime3 - startTime3;
-	if(answerOption==num) {
-		console.log("Correct Option! Reaction Time3: " + reactionTime3.toString() + "ms");
-		hitsList3[hitsList3.length] = reactionTime3;
-	} else {
-		console.log("Wrong Option! Reaction Time3: " + reactionTime3.toString() + "ms");
-		hitsList3[hitsList3.length] = -reactionTime3;
-	}
-	if (++testCount3 < EACH_ROUND3) {
-		randomQuestionAndAnswersThenShowThem();
-	} else {
-		endOfRound3();
-	}
-}
-
-function opt1() { doWhenOpt(1); }
-function opt2() { doWhenOpt(2); }
-function opt3() { doWhenOpt(3); }
-function opt4() { doWhenOpt(4); }
-function opt5() { doWhenOpt(5); }
  
 function playSearchGame() {
 	searchGamePlaying = true;
@@ -460,18 +497,100 @@ function playSearchGame() {
 }
  
  
+/*******************************
+ *         Check Game          *
+ *******************************/
+
+var checkboxes = document.getElementsByName("test");
+document.getElementById("checkGameInputs").style.display = "none";
+var moreThanX = -4444;  //提问中多于X个shapes
+var hitsList4 = [];
+var accuracyList = [];
+var startTime4 = new Date().getTime();
+var checkRoundOver = false;
+
+ 
+function drawBoarders() { //(3,2)
+	var xLen = W/xNum;
+	var yLen = H/yNum;
+	ctx.strokeStyle = WHITE;
+	for(var i = 0; i < xNum; i++) {
+		var x = i * xLen;
+		for(var j = 0; j < yNum; j++) {
+			var y = j * yLen;
+			ctx.strokeRect(x, y, xLen, yLen);
+		}
+	}
+}
+
+function totalEachArea() {
+	var totals = [];
+	for(var n = 0; n < xNum*yNum; n++) totals[n] = 0;
+	for(var i = 0; i < shapes.length; i++) {
+		totals[shapes[i].getMyArea()-1] ++;
+	}
+	return totals;
+}
+
+function doWhenCheckGameSubmit() {
+	var checkValues = [];
+    for(k in checkboxes){
+        if(checkboxes[k].checked)
+            checkValues.push(checkboxes[k].value);
+    }
+	var totals = totalEachArea();
+	var correctValues = [];
+	for(var k = 0; k < xNum*yNum; k++) {
+		if(totals[k] > moreThanX) {
+			correctValues.push(k+1);
+		}
+	}
+	var correctCount = 0;
+	for(var areaNum = 1; areaNum <= xNum*yNum; areaNum++) {
+		var userAns = checkValues.contains(areaNum);
+		var correctAns = correctValues.contains(areaNum);
+		if(!(userAns ^ correctAns)) { //对于该区域回答正确
+			correctCount++;
+		}
+	}
+	accuracyList.push(correctCount/(xNum*yNum));
+	var hitTime4 = new Date().getTime();
+	var reactionTime4 = hitTime4 - startTime4;
+	console.log("Check Round"+(round+1)+" Finished! Reaction Time4: " + reactionTime4.toString() + "ms");
+	alert("Check Round"+(round+1)+" Finished!");
+	hitsList4[hitsList4.length] = reactionTime4;
+	checkRoundOver = true;
+}
+ 
+function startCheckGame() {
+	drawBoarders();
+	moreThanX = Math.floor(INIT_NUM / 6).toString();
+	info.innerHTML = "Choose areas with MORE THAN " + moreThanX + " shapes:";
+	startTime4 = new Date().getTime();
+}
+ 
+function playCheckGame() {
+	checkGamePlaying = true;
+	document.getElementById("checkGameInputs").style.display = "block";
+	startCheckGame();
+}
+ 
+ 
 
 function nextRound() {
 	var u1 = false;
 	var u2 = false;
 	var u3 = false;
+	var u4 = false;
 	if (!discoverGamePlaying) u1 = true;
 	if (!perceiveGamePlaying) u2 = true;
 	if (!searchGamePlaying) u3 = true;
+	if (!checkGamePlaying) u4 = true;
 	if (discoverGamePlaying && discoverRoundOver) u1 = true;
 	if (perceiveGamePlaying && perceiveRoundOver) u2 = true;
 	if (searchGamePlaying && searchRoundOver) u3 = true;
-	if (u1 && u2 && u3) {
+	if (checkGamePlaying && checkRoundOver) u4 = true;
+	if (u1 && u2 && u3 && u4) {
 		console.log("next round!");
 		if (++round < roundTotal) {
 			INIT_NUM = brr[round];
@@ -498,8 +617,19 @@ function nextRound() {
 				randomQuestionAndAnswersThenShowThem();
 				searchRoundOver = false;
 			}
+			if (checkGamePlaying) {
+				for(k in checkboxes){
+					checkboxes[k].checked = false;
+				}
+				startCheckGame();
+				checkRoundOver = false;
+			}
 		} else {
 			alert("Mission Complete!");
+			if (checkGamePlaying) {
+				console.log("hitsList4:", hitsList4);
+				console.log("accuracyList:", accuracyList);
+			}
 		}
 	}
 }
@@ -527,7 +657,8 @@ function letsPlay() {
 	init();
 	playDiscoverGame();
 	//playPerceiveGame();
-	playSearchGame();
+	//playSearchGame();
+	playCheckGame();
 }
 
 
