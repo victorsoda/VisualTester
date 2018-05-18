@@ -16,6 +16,7 @@ var BLUE = 'rgb(0,255,255)';
 var YELLOW = 'rgb(255,255,0)';
 var GREEN = 'rgb(0,255,0)';
 var WHITE = 'rgb(255,255,255)';
+var PURPLE = 'rgb(255,0,255)';
 var COLORS = [RED, BLUE, YELLOW, GREEN];
 var COLOR_NAMES = ["RED", "BLUE", "YELLOW", "GREEN"];
 var shapes = [];  //形状的对象数组
@@ -28,7 +29,7 @@ var perceiveGamePlaying = false;
 var searchGamePlaying = false;
 var checkGamePlaying = false;
 var trackGamePlaying = false;
-var arr =[10, 20];
+var arr =[40];
 var brr = [];  //打乱后的复杂度序列，如图形个数为10个、40个、30个、20个
 var roundTotal = arr.length;
 var round = 0;
@@ -54,7 +55,6 @@ function Shape(shape, x, y, color) { //图形类
 			}
 		}
 	}
-	this.getMyArea();
 	this.drawMyself = function(){
 		if (!this.hide) {
 			if (this.shape == "Circle") {
@@ -82,6 +82,41 @@ function Shape(shape, x, y, color) { //图形类
 	}
 	this.changeBackMyColor = function() {
 		this.color = this.originColor;
+	}
+	this.crushWithShape = function(s) {	//仅限于本形状为圆形（任务5紫色小球）
+		if(s.shape == 'Circle') {
+			var dist = distance(this.x, this.y, s.x, s.y);
+			if (dist <= 2*R) return true;
+			else return false;	
+		} else if (s.shape == 'Square') {
+			var x1 = s.x - 0.9*R;
+			var x2 = s.x + 0.9*R;
+			var y1 = s.y - 0.9*R;
+			var y2 = s.y + 0.9*R;
+			/*var distA = distance(this.x, this.y, x1, y1);
+			var distB = distance(this.x, this.y, x1, y2);
+			var distC = distance(this.x, this.y, x2, y1);
+			var distD = distance(this.x, this.y, x2, y2);
+			if (distA < R || distB < R || distC < R || distD < R) return true;*/
+			if (Math.abs(this.x - x1) < R && y1 < this.y && this.y < y2) return true;
+			if (Math.abs(this.x - x2) < R && y1 < this.y && this.y < y2) return true;
+			if (Math.abs(this.y - y1) < R && x1 < this.x && this.x < x2) return true;
+			if (Math.abs(this.y - y2) < R && x1 < this.x && this.x < x2) return true;
+			return false;
+		} else {
+			var L = 2 * R * Math.sin(Math.PI / 3);
+			var x1 = s.x, y1 = s.y-R;
+			var x2 = s.x-L/2, y2 = s.y+R/2;
+			var x3 = s.x+L/2, y3 = s.y+R/2;
+			var distA = distance(this.x, this.y, x1, y1);
+			var distB = distance(this.x, this.y, x2, y2);
+			var distC = distance(this.x, this.y, x3, y3);
+			if (distA < R || distB < R || distC < R) return true;
+			//TODO: ......
+			return false;
+		}
+			
+		
 	}
 }
 
@@ -133,7 +168,7 @@ function checkPosition(x, y) { //检查位置(x,y)是否可以画一个图形，
 	if (Math.abs(x - W/3) < 2*R || Math.abs(x - W*2/3) < 2*R || Math.abs(y - H/2) < 2*R) return false; //离区域分界线太近
 	for (var i = 0; i < shapes.length; i++) {
 		var dist = distance(x, y, shapes[i].x, shapes[i].y);
-		if (dist < 3 * R) return false;
+		if (dist < 5 * R) return false;
 	}
 	return true;
 }
@@ -380,6 +415,68 @@ function opt3() { doWhenOpt(3); }
 function opt4() { doWhenOpt(4); }
 function opt5() { doWhenOpt(5); }
 
+/*******************************
+ *          Check Game         *
+ *******************************/
+
+function drawBoarders() { //(3,2)
+	var xLen = W/xNum;
+	var yLen = H/yNum;
+	ctx.strokeStyle = WHITE;
+	for(var i = 0; i < xNum; i++) {
+		var x = i * xLen;
+		for(var j = 0; j < yNum; j++) {
+			var y = j * yLen;
+			ctx.strokeRect(x, y, xLen, yLen);
+		}
+	}
+}
+
+function totalEachArea() {
+	var totals = [];
+	for(var n = 0; n < xNum*yNum; n++) totals[n] = 0;
+	for(var i = 0; i < shapes.length; i++) {
+		totals[shapes[i].getMyArea()-1] ++;
+	}
+	return totals;
+}
+
+function doWhenCheckGameSubmit() {
+	var checkValues = [];
+    for(k in checkboxes){
+        if(checkboxes[k].checked)
+            checkValues.push(checkboxes[k].value);
+    }
+	var totals = totalEachArea();
+	var correctValues = [];
+	for(var k = 0; k < xNum*yNum; k++) {
+		if(totals[k] > moreThanX) {
+			correctValues.push(k+1);
+		}
+	}
+	var correctCount = 0;
+	for(var areaNum = 1; areaNum <= xNum*yNum; areaNum++) {
+		var userAns = checkValues.contains(areaNum);
+		var correctAns = correctValues.contains(areaNum);
+		if(!(userAns ^ correctAns)) { //对于该区域回答正确
+			correctCount++;
+		}
+	}
+	accuracyList.push(correctCount/(xNum*yNum));
+	var hitTime4 = new Date().getTime();
+	var reactionTime4 = hitTime4 - startTime4;
+	console.log("Check Round"+(round+1)+" Finished! Reaction Time4: " + reactionTime4.toString() + "ms");
+	alert("Check Round"+(round+1)+" Finished!");
+	hitsList4[hitsList4.length] = reactionTime4;
+	checkRoundOver = true;
+}
+ 
+function startCheckGame() {
+	drawBoarders();
+	moreThanX = Math.floor(INIT_NUM / 6).toString();
+	info.innerHTML = "Choose areas with MORE THAN " + moreThanX + " shapes:";
+	startTime4 = new Date().getTime();
+}
 
 
 //************************* 游戏主体 *************************
@@ -509,72 +606,136 @@ var accuracyList = [];
 var startTime4 = new Date().getTime();
 var checkRoundOver = false;
 
- 
-function drawBoarders() { //(3,2)
-	var xLen = W/xNum;
-	var yLen = H/yNum;
-	ctx.strokeStyle = WHITE;
-	for(var i = 0; i < xNum; i++) {
-		var x = i * xLen;
-		for(var j = 0; j < yNum; j++) {
-			var y = j * yLen;
-			ctx.strokeRect(x, y, xLen, yLen);
-		}
-	}
-}
-
-function totalEachArea() {
-	var totals = [];
-	for(var n = 0; n < xNum*yNum; n++) totals[n] = 0;
-	for(var i = 0; i < shapes.length; i++) {
-		totals[shapes[i].getMyArea()-1] ++;
-	}
-	return totals;
-}
-
-function doWhenCheckGameSubmit() {
-	var checkValues = [];
-    for(k in checkboxes){
-        if(checkboxes[k].checked)
-            checkValues.push(checkboxes[k].value);
-    }
-	var totals = totalEachArea();
-	var correctValues = [];
-	for(var k = 0; k < xNum*yNum; k++) {
-		if(totals[k] > moreThanX) {
-			correctValues.push(k+1);
-		}
-	}
-	var correctCount = 0;
-	for(var areaNum = 1; areaNum <= xNum*yNum; areaNum++) {
-		var userAns = checkValues.contains(areaNum);
-		var correctAns = correctValues.contains(areaNum);
-		if(!(userAns ^ correctAns)) { //对于该区域回答正确
-			correctCount++;
-		}
-	}
-	accuracyList.push(correctCount/(xNum*yNum));
-	var hitTime4 = new Date().getTime();
-	var reactionTime4 = hitTime4 - startTime4;
-	console.log("Check Round"+(round+1)+" Finished! Reaction Time4: " + reactionTime4.toString() + "ms");
-	alert("Check Round"+(round+1)+" Finished!");
-	hitsList4[hitsList4.length] = reactionTime4;
-	checkRoundOver = true;
-}
- 
-function startCheckGame() {
-	drawBoarders();
-	moreThanX = Math.floor(INIT_NUM / 6).toString();
-	info.innerHTML = "Choose areas with MORE THAN " + moreThanX + " shapes:";
-	startTime4 = new Date().getTime();
-}
- 
 function playCheckGame() {
 	checkGamePlaying = true;
 	document.getElementById("checkGameInputs").style.display = "block";
 	startCheckGame();
 }
  
+ 
+/*******************************
+ *          Track Game         *
+ *******************************/
+
+function endOfRound5() {
+	alert("Track Round"+(round+1)+" Finished!");
+	console.log("hitsList5:", hitsList5);
+	trackRoundOver = true;
+}
+ 
+function whenTimeIsUp5(sub) {
+	console.log("Missed Tracking! Reaction Time5: " + TIME_THRESHOLD5 + "ms");
+	hitsList5[sub] = TIME_THRESHOLD5;
+	isTimeOutList[sub] = true;
+	if(crushList.length == 10 && !isTimeOutList.contains(false)) { //游戏结束
+		endOfRound5();
+	}
+} 
+ 
+function randomNum(num1,num2){  
+	return Math.random()*(num2-num1+1)+num1;  
+}  
+ 
+var knight = new Shape('Circle', W/2, H/2, PURPLE);
+var moveInterval = undefined;
+var speedX = randomNum(2,3)/2;
+var speedY = randomNum(2,3)/2;
+var crushList = []; //存储每个被撞形状在shapes数组的下标
+var timeoutList = [];  //存储每个被撞形状对应的setTimeout变量
+var isTimeOutList = []; //记录该被撞形状是否确实超时了（或者被点中过了）
+var crushWho = -1;
+var TIME_THRESHOLD5 = 5000;
+var hitsList5 = [];
+var startTimeList = [];
+var trackRoundOver = false;
+var trackCount = 0;
+
+function knightMove() {
+	knight.x += speedX;
+	knight.y += speedY;
+	var coin = Math.random();
+	if(coin < 0.1) {
+		var dSpeedX = Math.random()*0.4;
+		var dSpeedY = Math.random()*0.4;
+		if(speedX > 0) speedX += dSpeedX;
+		else speedX -= dSpeedX;
+		if(speedY > 0) speedY += dSpeedY;
+		else speedY -= dSpeedY;
+	} 
+	if (coin > 0.8) {
+		var dSpeedX = Math.random()*0.2;
+		var dSpeedY = Math.random()*0.2;
+		if(speedX > 0) speedX -= dSpeedX;
+		else speedX += dSpeedX;
+		if(speedY > 0) speedY -= dSpeedY;
+		else speedY += dSpeedY;
+	}
+	if (knight.x > W-R || knight.x < R) {
+		speedX = -speedX;
+	}
+	if (knight.y > H-R || knight.y < R) {
+		speedY = -speedY;
+	}
+	reDraw();
+	knight.drawMyself();
+	var flag = false;
+	for(var i = 0; i < INIT_NUM; i++) {
+		if (knight.crushWithShape(shapes[i])) {
+			flag = true;
+			if (crushList.length != 0 && crushWho == i) { //短时间内重复碰撞同一形状，说明还是同一次碰撞
+				return;
+			} else { //骑士小球撞到了一个图形
+				crushWho = i;
+				crushList.push(i);
+				console.log(crushList);
+				info.innerHTML = "Crush Count: "+crushList.length+"<br>Track Count: "+trackCount;
+				var timeout = setTimeout("whenTimeIsUp5("+(crushList.length-1)+");", TIME_THRESHOLD5);
+				timeoutList.push(timeout);
+				isTimeOutList.push(false);
+				startTimeList.push(new Date().getTime());
+				if(crushList.length == 10) {	//骑士小球撞到第10个图形时停止
+					clearInterval(moveInterval);
+				}
+			}
+		}
+	}
+	if(!flag) {
+		crushWho = -1;
+	}
+}
+ 
+ 
+function playTrackGame() {
+	trackGamePlaying = true;
+	knight.drawMyself();
+	var coinX = Math.random();
+	var coinY = Math.random();
+	if (coinX < 0.5) speedX = -speedX;
+	if (coinY < 0.5) speedY = -speedY;
+
+	moveInterval = setInterval("knightMove();", 25);
+	c.addEventListener('click', function(e){
+		var x = e.offsetX;
+		var y = e.offsetY;
+		var clickedI = whoIsClicked(x, y);
+		for (var i = 0; i < crushList.length; i++) {
+			if(isTimeOutList[i]) continue;
+			if(crushList[i] == clickedI) { //点中了被撞的图形
+				var hitTime = new Date().getTime();
+				var reactionTime = hitTime - startTimeList[i];
+				console.log("Nice track! Reaction Time: " + reactionTime.toString() + "ms")
+				trackCount++;
+				info.innerHTML = "Crush Count: "+crushList.length+"<br>Track Count: "+trackCount;
+				hitsList5[i] = reactionTime;
+				isTimeOutList[i] = true;
+				clearTimeout(timeoutList[i]);
+				if(crushList.length == 10 && !isTimeOutList.contains(false)) { //游戏结束
+					endOfRound5();
+				}
+			}
+		}
+	});	
+}
  
 
 function nextRound() {
@@ -655,10 +816,11 @@ function init() {
 
 function letsPlay() {
 	init();
-	playDiscoverGame();
+	//playDiscoverGame();
 	//playPerceiveGame();
 	//playSearchGame();
-	playCheckGame();
+	//playCheckGame();
+	playTrackGame();
 }
 
 
