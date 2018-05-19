@@ -4,6 +4,194 @@ Array.prototype.contains = function ( needle ) {
   }
   return false;
 }
+/* FileSaver.js
+ * A saveAs() FileSaver implementation.
+ * 1.3.2
+ * 2016-06-16 18:25:19
+ *
+ * By Eli Grey, http://eligrey.com
+ * License: MIT
+ *   See https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md
+ */
+ 
+/*global self */
+/*jslint bitwise: true, indent: 4, laxbreak: true, laxcomma: true, smarttabs: true, plusplus: true */
+ 
+/*! @source http://purl.eligrey.com/github/FileSaver.js/blob/master/FileSaver.js */
+ 
+var saveAs = saveAs || (function(view) {
+    "use strict";
+    // IE <10 is explicitly unsupported
+    if (typeof view === "undefined" || typeof navigator !== "undefined" && /MSIE [1-9]\./.test(navigator.userAgent)) {
+        return;
+    }
+    var
+          doc = view.document
+          // only get URL when necessary in case Blob.js hasn't overridden it yet
+        , get_URL = function() {
+            return view.URL || view.webkitURL || view;
+        }
+        , save_link = doc.createElementNS("http://www.w3.org/1999/xhtml", "a")
+        , can_use_save_link = "download" in save_link
+        , click = function(node) {
+            var event = new MouseEvent("click");
+            node.dispatchEvent(event);
+        }
+        , is_safari = /constructor/i.test(view.HTMLElement) || view.safari
+        , is_chrome_ios =/CriOS\/[\d]+/.test(navigator.userAgent)
+        , throw_outside = function(ex) {
+            (view.setImmediate || view.setTimeout)(function() {
+                throw ex;
+            }, 0);
+        }
+        , force_saveable_type = "application/octet-stream"
+        // the Blob API is fundamentally broken as there is no "downloadfinished" event to subscribe to
+        , arbitrary_revoke_timeout = 1000 * 40 // in ms
+        , revoke = function(file) {
+            var revoker = function() {
+                if (typeof file === "string") { // file is an object URL
+                    get_URL().revokeObjectURL(file);
+                } else { // file is a File
+                    file.remove();
+                }
+            };
+            setTimeout(revoker, arbitrary_revoke_timeout);
+        }
+        , dispatch = function(filesaver, event_types, event) {
+            event_types = [].concat(event_types);
+            var i = event_types.length;
+            while (i--) {
+                var listener = filesaver["on" + event_types[i]];
+                if (typeof listener === "function") {
+                    try {
+                        listener.call(filesaver, event || filesaver);
+                    } catch (ex) {
+                        throw_outside(ex);
+                    }
+                }
+            }
+        }
+        , auto_bom = function(blob) {
+            // prepend BOM for UTF-8 XML and text/* types (including HTML)
+            // note: your browser will automatically convert UTF-16 U+FEFF to EF BB BF
+            if (/^\s*(?:text\/\S*|application\/xml|\S*\/\S*\+xml)\s*;.*charset\s*=\s*utf-8/i.test(blob.type)) {
+                return new Blob([String.fromCharCode(0xFEFF), blob], {type: blob.type});
+            }
+            return blob;
+        }
+        , FileSaver = function(blob, name, no_auto_bom) {
+            if (!no_auto_bom) {
+                blob = auto_bom(blob);
+            }
+            // First try a.download, then web filesystem, then object URLs
+            var
+                  filesaver = this
+                , type = blob.type
+                , force = type === force_saveable_type
+                , object_url
+                , dispatch_all = function() {
+                    dispatch(filesaver, "writestart progress write writeend".split(" "));
+                }
+                // on any filesys errors revert to saving with object URLs
+                , fs_error = function() {
+                    if ((is_chrome_ios || (force && is_safari)) && view.FileReader) {
+                        // Safari doesn't allow downloading of blob urls
+                        var reader = new FileReader();
+                        reader.onloadend = function() {
+                            var url = is_chrome_ios ? reader.result : reader.result.replace(/^data:[^;]*;/, 'data:attachment/file;');
+                            var popup = view.open(url, '_blank');
+                            if(!popup) view.location.href = url;
+                            url=undefined; // release reference before dispatching
+                            filesaver.readyState = filesaver.DONE;
+                            dispatch_all();
+                        };
+                        reader.readAsDataURL(blob);
+                        filesaver.readyState = filesaver.INIT;
+                        return;
+                    }
+                    // don't create more object URLs than needed
+                    if (!object_url) {
+                        object_url = get_URL().createObjectURL(blob);
+                    }
+                    if (force) {
+                        view.location.href = object_url;
+                    } else {
+                        var opened = view.open(object_url, "_blank");
+                        if (!opened) {
+                            // Apple does not allow window.open, see https://developer.apple.com/library/safari/documentation/Tools/Conceptual/SafariExtensionGuide/WorkingwithWindowsandTabs/WorkingwithWindowsandTabs.html
+                            view.location.href = object_url;
+                        }
+                    }
+                    filesaver.readyState = filesaver.DONE;
+                    dispatch_all();
+                    revoke(object_url);
+                }
+            ;
+            filesaver.readyState = filesaver.INIT;
+ 
+            if (can_use_save_link) {
+                object_url = get_URL().createObjectURL(blob);
+                setTimeout(function() {
+                    save_link.href = object_url;
+                    save_link.download = name;
+                    click(save_link);
+                    dispatch_all();
+                    revoke(object_url);
+                    filesaver.readyState = filesaver.DONE;
+                });
+                return;
+            }
+ 
+            fs_error();
+        }
+        , FS_proto = FileSaver.prototype
+        , saveAs = function(blob, name, no_auto_bom) {
+            return new FileSaver(blob, name || blob.name || "download", no_auto_bom);
+        }
+    ;
+    // IE 10+ (native saveAs)
+    if (typeof navigator !== "undefined" && navigator.msSaveOrOpenBlob) {
+        return function(blob, name, no_auto_bom) {
+            name = name || blob.name || "download";
+ 
+            if (!no_auto_bom) {
+                blob = auto_bom(blob);
+            }
+            return navigator.msSaveOrOpenBlob(blob, name);
+        };
+    }
+ 
+    FS_proto.abort = function(){};
+    FS_proto.readyState = FS_proto.INIT = 0;
+    FS_proto.WRITING = 1;
+    FS_proto.DONE = 2;
+ 
+    FS_proto.error =
+    FS_proto.onwritestart =
+    FS_proto.onprogress =
+    FS_proto.onwrite =
+    FS_proto.onabort =
+    FS_proto.onerror =
+    FS_proto.onwriteend =
+        null;
+ 
+    return saveAs;
+}(
+       typeof self !== "undefined" && self
+    || typeof window !== "undefined" && window
+    || this.content
+));
+// `self` is undefined in Firefox for Android content script context
+// while `this` is nsIContentFrameMessageManager
+// with an attribute `content` that corresponds to the window
+ 
+if (typeof module !== "undefined" && module.exports) {
+  module.exports.saveAs = saveAs;
+} else if ((typeof define !== "undefined" && define !== null) && (define.amd !== null)) {
+  define("FileSaver.js", function() {
+    return saveAs;
+  });
+}
 
 var c = document.getElementById("myCanvas");
 var ctx = c.getContext("2d");
@@ -31,10 +219,14 @@ var checkGamePlaying = false;
 var trackGamePlaying = false;
 var arr =[15];
 var brr = [];  //打乱后的复杂度序列，如图形个数为10个、40个、30个、20个
-var roundTotal = arr.length;
+var roundTotal = -100;
 var round = 0;
 var xNum = 3;	
 var yNum = 2;	//将整个Canvas划分成2行3列共6个区域
+var writeStr = "";
+var fileName = "";
+var gameName = "";
+var studentID = "";
 
 
 function Shape(shape, x, y, color) { //图形类
@@ -93,11 +285,6 @@ function Shape(shape, x, y, color) { //图形类
 			var x2 = s.x + 0.9*R;
 			var y1 = s.y - 0.9*R;
 			var y2 = s.y + 0.9*R;
-			/*var distA = distance(this.x, this.y, x1, y1);
-			var distB = distance(this.x, this.y, x1, y2);
-			var distC = distance(this.x, this.y, x2, y1);
-			var distD = distance(this.x, this.y, x2, y2);
-			if (distA < R || distB < R || distC < R || distD < R) return true;*/
 			if (Math.abs(this.x - x1) < R && y1 < this.y && this.y < y2) return true;
 			if (Math.abs(this.x - x2) < R && y1 < this.y && this.y < y2) return true;
 			if (Math.abs(this.y - y1) < R && x1 < this.x && this.x < x2) return true;
@@ -222,6 +409,16 @@ function reDraw() {
 	}
 }
 
+function writeList(l, listName) {
+	writeStr += listName + ",";
+	for (var i = 0; i < l.length-1; i++) {
+		writeStr += l[i].toString();
+		writeStr += ",";
+	}
+	writeStr += l[l.length-1].toString();
+	writeStr += " \r\n ";
+}
+
 /*******************************
  *        Discover Game        *
  *******************************/
@@ -245,6 +442,7 @@ function startAppearringOne() { //开始等待增画一个图形
 function endOfRound() {  //当一轮DiscoverGame结束时
 	clearTimeout(noReactionTimeout);
 	console.log("hitsList:", hitsList);
+	writeList(hitsList, "hitsList");
 	alert("Discover Round"+(round+1)+" Finished!");
 	discoverRoundOver = true;
 }
@@ -287,6 +485,7 @@ function startColoringOne() { //开始等待改变一个图形的颜色
 function endOfRound2() {
 	clearTimeout(noReactionTimeout2);
 	console.log("hitsList2:", hitsList2);
+	writeList(hitsList2, "hitsList2");
 	alert("Perceive Round"+(round+1)+" Finished!");
 	perceiveRoundOver = true;
 }
@@ -388,6 +587,7 @@ function whenTimeIsUp3() {
 function endOfRound3() {
 	clearTimeout(noReactionTimeout3);
 	console.log("hitsList3:", hitsList3);
+	writeList(hitsList3, "hitsList3");
 	alert("Search Round"+(round+1)+" Finished!");
 	searchRoundOver = true;
 }
@@ -476,6 +676,72 @@ function startCheckGame() {
 	moreThanX = Math.floor(INIT_NUM / 6).toString();
 	info.innerHTML = "Choose areas with MORE THAN " + moreThanX + " shapes:";
 	startTime4 = new Date().getTime();
+}
+
+/*******************************
+ *          Track Game         *
+ *******************************/
+
+function endOfRound5() {
+	alert("Track Round"+(round+1)+" Finished!");
+	console.log("hitsList5:", hitsList5);
+	writeList(hitsList5, "hitsList5");
+	trackRoundOver = true;
+}
+ 
+function whenTimeIsUp5(sub) {
+	console.log("Missed Tracking! Reaction Time5: " + TIME_THRESHOLD5 + "ms");
+	hitsList5[sub] = TIME_THRESHOLD5;
+	isTimeOutList[sub] = true;
+	if(crushList.length == 10 && !isTimeOutList.contains(false)) { //游戏结束
+		endOfRound5();
+	}
+} 
+ 
+function randomNum(num1,num2){  
+	return Math.random()*(num2-num1)+num1;  
+}  
+
+function knightMove() {	
+	var coin = randomNum(-6, 6) * Math.PI / 180;
+	theta += coin;
+	
+	if (knight.x > W-R || knight.x < R) {
+		theta = Math.PI - theta;
+	}
+	if (knight.y > H-R || knight.y < R) {
+		theta = -theta;
+	}
+	knight.x += v * Math.cos(theta);
+	knight.y += v * Math.sin(theta);
+	
+	reDraw();
+	knight.drawMyself();
+	var flag = false;
+	for(var i = 0; i < INIT_NUM; i++) {
+		if (knight.crushWithShape(shapes[i])) {
+			flag = true;
+			if (crushList.length != 0 && crushWho == i) { //短时间内重复碰撞同一形状，说明还是同一次碰撞
+				return;
+			} else { //骑士小球撞到了一个图形
+				crushWho = i;
+				crushList.push(i);
+				//console.log(crushList);
+				info5.innerHTML = "Track Count: "+trackCount;
+				var timeout = setTimeout("whenTimeIsUp5("+(crushList.length-1)+");", TIME_THRESHOLD5);
+				timeoutList.push(timeout);
+				isTimeOutList.push(false);
+				startTimeList.push(new Date().getTime());
+				if(crushList.length == 10) {	//骑士小球撞到第10个图形时停止
+					clearInterval(moveInterval);
+					setTimeout("reDraw();", 500);
+				}
+			}
+		}
+	}
+	if(!flag) {
+		crushWho = -1;
+	}
 }
 
 
@@ -569,9 +835,6 @@ var option4 = document.getElementById("option4");
 var option5 = document.getElementById("option5");
 var options = [option1, option2, option3, option4, option5];
 var info = document.getElementById("info");
-for (var i = 0; i < 5; i++) {
-	options[i].style.display="none";
-}
 var question = "";
 var answer = -333;	//正确答案的值
 var answers = [];	//5个选项
@@ -599,7 +862,6 @@ function playSearchGame() {
  *******************************/
 
 var checkboxes = document.getElementsByName("test");
-document.getElementById("checkGameInputs").style.display = "none";
 var moreThanX = -4444;  //提问中多于X个shapes
 var hitsList4 = [];
 var accuracyList = [];
@@ -616,25 +878,6 @@ function playCheckGame() {
 /*******************************
  *          Track Game         *
  *******************************/
-
-function endOfRound5() {
-	alert("Track Round"+(round+1)+" Finished!");
-	console.log("hitsList5:", hitsList5);
-	trackRoundOver = true;
-}
- 
-function whenTimeIsUp5(sub) {
-	console.log("Missed Tracking! Reaction Time5: " + TIME_THRESHOLD5 + "ms");
-	hitsList5[sub] = TIME_THRESHOLD5;
-	isTimeOutList[sub] = true;
-	if(crushList.length == 10 && !isTimeOutList.contains(false)) { //游戏结束
-		endOfRound5();
-	}
-} 
- 
-function randomNum(num1,num2){  
-	return Math.random()*(num2-num1)+num1;  
-}  
  
 var knight = new Shape('Circle', W/2, H/2, PURPLE);
 var moveInterval = undefined;
@@ -651,50 +894,6 @@ var theta = randomNum(0, 2 * Math.PI);
 var v = 6;
 var info5 = document.getElementById("info5");
 
-
-function knightMove() {
-	
-	var coin = randomNum(-6, 6) * Math.PI / 180;
-	//console.log("coin:",coin*180/Math.PI);
-	theta += coin;
-	
-	if (knight.x > W-R || knight.x < R) {
-		theta = Math.PI - theta;
-	}
-	if (knight.y > H-R || knight.y < R) {
-		theta = -theta;
-	}
-	knight.x += v * Math.cos(theta);
-	knight.y += v * Math.sin(theta);
-	
-	reDraw();
-	knight.drawMyself();
-	var flag = false;
-	for(var i = 0; i < INIT_NUM; i++) {
-		if (knight.crushWithShape(shapes[i])) {
-			flag = true;
-			if (crushList.length != 0 && crushWho == i) { //短时间内重复碰撞同一形状，说明还是同一次碰撞
-				return;
-			} else { //骑士小球撞到了一个图形
-				crushWho = i;
-				crushList.push(i);
-				console.log(crushList);
-				info5.innerHTML = "Crush Count: "+crushList.length+"<br>Track Count: "+trackCount;
-				var timeout = setTimeout("whenTimeIsUp5("+(crushList.length-1)+");", TIME_THRESHOLD5);
-				timeoutList.push(timeout);
-				isTimeOutList.push(false);
-				startTimeList.push(new Date().getTime());
-				if(crushList.length == 10) {	//骑士小球撞到第10个图形时停止
-					clearInterval(moveInterval);
-					setTimeout("reDraw();", 500);
-				}
-			}
-		}
-	}
-	if(!flag) {
-		crushWho = -1;
-	}
-}
  
  
 function playTrackGame() {
@@ -713,7 +912,7 @@ function playTrackGame() {
 				var reactionTime = hitTime - startTimeList[i];
 				console.log("Nice track! Reaction Time: " + reactionTime.toString() + "ms")
 				trackCount++;
-				info5.innerHTML = "Crush Count: "+crushList.length+"<br>Track Count: "+trackCount;
+				info5.innerHTML = "Track Count: "+trackCount;
 				hitsList5[i] = reactionTime;
 				isTimeOutList[i] = true;
 				clearTimeout(timeoutList[i]);
@@ -724,7 +923,58 @@ function playTrackGame() {
 		}
 	});	
 }
- 
+
+var nextRoundInterval = undefined;
+
+function initDiscoverGame() {
+	testCount = 0;
+	hitsList = [];
+	discoverRoundOver = false;
+}
+
+function initPerceiveGame() {
+	testCount2 = 0;
+	hitsList2 = [];
+	perceiveRoundOver = false;
+}
+
+function initSearchGame(duringRound) {
+	testCount3 = 0;
+	hitsList3 = [];
+	questionList = [];
+	searchRoundOver = false;
+	if(!duringRound) {
+		for (var i = 0; i < 5; i++) {
+			options[i].style.display="none";
+		}
+	}
+	info.innerHTML = "";
+}
+
+function initCheckGame(duringRound) {
+	for(k in checkboxes){
+		checkboxes[k].checked = false;
+	}
+	checkRoundOver = false;
+	info.innerHTML = "";
+	if(!duringRound)
+		document.getElementById("checkGameInputs").style.display = "none";
+}
+
+function initTrackGame() {
+	crushList = [];
+	hitsList5 = [];
+	timeoutList = []; 
+	isTimeOutList = []; 
+	crushWho = -1;
+	startTimeList = [];
+	trackRoundOver = false;
+	trackCount = 0;
+	theta = randomNum(0, 2 * Math.PI);
+	info5.innerHTML = "";
+	knight.x = W/2;
+	knight.y = H/2;
+}
 
 function nextRound() {
 	var u1 = false;
@@ -744,6 +994,7 @@ function nextRound() {
 	if (trackGamePlaying && trackRoundOver) u5 = true;
 	if (u1 && u2 && u3 && u4 && u5) {
 		console.log("next round!");
+		fileName = studentID+gameName+"_"+INIT_NUM+".txt"; //保留刚结束这轮的文件名
 		if (++round < roundTotal) {
 			INIT_NUM = brr[round];
 			shapes = [];
@@ -751,60 +1002,69 @@ function nextRound() {
 			drawRandomly(INIT_NUM);
 			console.log(shapes);
 			if (discoverGamePlaying) {
-				testCount = 0;
-				hitsList = [];
+				initDiscoverGame();
 				startAppearringOne();
-				discoverRoundOver = false;
 			}
 			if (perceiveGamePlaying) {
-				testCount2 = 0;
-				hitsList2 = [];
+				initPerceiveGame();
 				startColoringOne();
-				perceiveRoundOver = false;
 			}
 			if (searchGamePlaying) {
-				testCount3 = 0;
-				hitsList3 = [];
-				questionList = [];
+				initSearchGame(true);
 				randomQuestionAndAnswersThenShowThem();
-				searchRoundOver = false;
 			}
 			if (checkGamePlaying) {
-				for(k in checkboxes){
-					checkboxes[k].checked = false;
-				}
+				initCheckGame(true);
 				startCheckGame();
-				checkRoundOver = false;
 			}
 			if (trackGamePlaying) {
-				crushList = [];
-				hitsList5 = [];
-				timeoutList = []; 
-				isTimeOutList = []; 
-				crushWho = -1;
-				startTimeList = [];
-				trackRoundOver = false;
-				trackCount = 0;
-				theta = randomNum(0, 2 * Math.PI);
-				info5.innerHTML = "Crush Count: "+crushList.length+"<br>Track Count: "+trackCount;
-				knight.x = W/2;
-				knight.y = H/2;
+				initTrackGame();
 				knight.drawMyself();
 				moveInterval = setInterval("knightMove();", 25);
 			}
 		} else {
 			alert("Mission Complete!");
+			round--;
 			if (checkGamePlaying) {
 				console.log("hitsList4:", hitsList4);
+				writeList(hitsList4, "hitsList4");
 				console.log("accuracyList:", accuracyList);
+				writeList(accuracyList, "accuracyList4");
 			}
+			clearInterval(nextRoundInterval);
+			console.log("Cleared nextRoundInterval!");
+			document.getElementById("startGame").removeAttribute("disabled");
+		}
+		
+		if (writeStr.length != 0) {
+			var file = new File([writeStr], fileName, { type: "text/plain;charset=utf-8" });
+			saveAs(file);
+			writeStr = "";
 		}
 	}
 }
 
+initDiscoverGame();
+initPerceiveGame();
+initSearchGame(false);
+initCheckGame(false);
+initTrackGame();
 
 function init() {
-	c.height = c.height;
+	shapes = [];
+	discoverGamePlaying = false;
+	perceiveGamePlaying = false;
+	searchGamePlaying = false;
+	checkGamePlaying = false;
+	trackGamePlaying = false;
+	//所有游戏初始化
+	initDiscoverGame();
+	initPerceiveGame();
+	initSearchGame(false);
+	initCheckGame(false);
+	initTrackGame();
+	
+	c.height = c.height; //重置Canvas
 	ctx.lineWidth = 3;
 	console.log(W, H);
 	for (var i = 0; i < roundTotal; i++){
@@ -812,22 +1072,74 @@ function init() {
 		brr.push(arr[temp]);
 		arr.splice(temp,1);
 	}
-	console.log(brr);
+	//console.log(brr);
 	INIT_NUM = brr[round];
+	console.log("init num:", INIT_NUM);
 	drawRandomly(INIT_NUM); 
 	console.log(shapes);
-	document.getElementById("nextRound").removeAttribute("disabled");
+	//document.getElementById("nextRound").removeAttribute("disabled");
 	document.getElementById("startGame").setAttribute("disabled", true);
+	nextRoundInterval = setInterval("nextRound();", 1000);
 }
 
+var startGameTime = new Date().getTime();
 
 function letsPlay() {
+	studentID = document.getElementById("studentID").value;
+	if(studentID.length == 0) {
+		alert("Pleaze input your student ID!");
+		return;
+	}
+	initNumStr = document.getElementById("initNum").value;
+	if(initNumStr.length == 0) {
+		alert("Pleaze input Complexity!");
+		return;
+	}
+	//console.log("initNumStr:", initNumStr);
+	//console.log("split:", initNumStr.split(","));
+	arr = initNumStr.split(",");
+	roundTotal = arr.length;
+	console.log("arr:", arr);
+	//arr = [INIT_NUM];
+	brr = [];
+	var gameBoxes = document.getElementsByName("game");
+	var checkValues = [];
+	for(k in gameBoxes){
+		if(gameBoxes[k].checked)
+			checkValues.push(gameBoxes[k].value);
+	}
+	if(checkValues.length == 0) {
+		alert("Pleaze choose some of the Games!");
+		return;
+	}
+	if(checkValues.contains(3) && checkValues.contains(4)) {
+		alert("You shouldn't play Search & Check Games at the same time!");
+		return;
+	}
 	init();
-	//playDiscoverGame();
-	//playPerceiveGame();
-	playSearchGame();
-	//playCheckGame();
-	playTrackGame();
+	for (var i = 0; i < checkValues.length; i++) {
+		if (checkValues[i] == 1) {
+			playDiscoverGame();
+			gameName += "_Discover";
+		}
+		if (checkValues[i] == 2) {
+			playPerceiveGame();
+			gameName += "_Perceive";
+		}
+		if (checkValues[i] == 3) {
+			playSearchGame();
+			gameName += "_Search";
+		}
+		if (checkValues[i] == 4) {
+			playCheckGame();
+			gameName += "_Check";
+		}
+		if (checkValues[i] == 5) {
+			playTrackGame();
+			gameName += "_Track";
+		}
+	}
+	fileName = studentID+gameName+"_"+INIT_NUM+".txt";
 }
 
 

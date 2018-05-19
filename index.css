@@ -47,7 +47,7 @@
 #info5{
 	position:fixed;
 	top:-15px;
-    right:450px;
+    right:480px;
 }
 
 #myCanvas{
@@ -70,4 +70,9 @@
 	position:fixed;
 	top:41px;
 	right:115px;
+}
+#gameBoxes{
+	position:fixed;
+	top:35px;
+	left:10px;
 }
