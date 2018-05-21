@@ -443,7 +443,7 @@ function endOfRound() {  //当一轮DiscoverGame结束时
 	clearTimeout(noReactionTimeout);
 	console.log("hitsList:", hitsList);
 	writeList(hitsList, "hitsList");
-	alert("Discover Round"+(round+1)+" Finished!");
+	//alert("Discover Round"+(round+1)+" Finished!");
 	discoverRoundOver = true;
 }
 
@@ -486,7 +486,7 @@ function endOfRound2() {
 	clearTimeout(noReactionTimeout2);
 	console.log("hitsList2:", hitsList2);
 	writeList(hitsList2, "hitsList2");
-	alert("Perceive Round"+(round+1)+" Finished!");
+	//alert("Perceive Round"+(round+1)+" Finished!");
 	perceiveRoundOver = true;
 }
 
@@ -575,7 +575,7 @@ function randomQuestionAndAnswersThenShowThem() { //若随机到了出现过的�
 
 function whenTimeIsUp3() {
 	console.log("Missed Options! Reaction Time3: " + TIME_THRESHOLD3 + "ms");
-	alert("You've Missed One Question!");
+	//alert("You've Missed One Question!");
 	hitsList3[hitsList3.length] = TIME_THRESHOLD3;
 	if (++testCount3 < EACH_ROUND3) {
 		randomQuestionAndAnswersThenShowThem();
@@ -588,7 +588,7 @@ function endOfRound3() {
 	clearTimeout(noReactionTimeout3);
 	console.log("hitsList3:", hitsList3);
 	writeList(hitsList3, "hitsList3");
-	alert("Search Round"+(round+1)+" Finished!");
+	//alert("Search Round"+(round+1)+" Finished!");
 	searchRoundOver = true;
 }
 
@@ -666,7 +666,7 @@ function doWhenCheckGameSubmit() {
 	var hitTime4 = new Date().getTime();
 	var reactionTime4 = hitTime4 - startTime4;
 	console.log("Check Round"+(round+1)+" Finished! Reaction Time4: " + reactionTime4.toString() + "ms");
-	alert("Check Round"+(round+1)+" Finished!");
+	//alert("Check Round"+(round+1)+" Finished!");
 	hitsList4[hitsList4.length] = reactionTime4;
 	checkRoundOver = true;
 }
@@ -683,7 +683,7 @@ function startCheckGame() {
  *******************************/
 
 function endOfRound5() {
-	alert("Track Round"+(round+1)+" Finished!");
+	//alert("Track Round"+(round+1)+" Finished!");
 	console.log("hitsList5:", hitsList5);
 	writeList(hitsList5, "hitsList5");
 	trackRoundOver = true;
@@ -956,6 +956,8 @@ function initCheckGame(duringRound) {
 		checkboxes[k].checked = false;
 	}
 	checkRoundOver = false;
+	hitsList4 = [];
+	accuracyList = [];
 	info.innerHTML = "";
 	if(!duringRound)
 		document.getElementById("checkGameInputs").style.display = "none";
@@ -1064,6 +1066,7 @@ function init() {
 	initCheckGame(false);
 	initTrackGame();
 	
+	gameName = "";
 	c.height = c.height; //重置Canvas
 	ctx.lineWidth = 3;
 	console.log(W, H);
