@@ -608,6 +608,10 @@ function endOfRound3() {
 	clearTimeout(noReactionTimeout3);
 	console.log("hitsList3:", hitsList3);
 	writeList(hitsList3, "hitsList3");
+	for (var i = 0; i < 5; i++) {
+		options[i].style.display="none";
+	}
+	info.innerHTML = "";
 	//alert("Search Round"+(round+1)+" Finished!");
 	searchRoundOver = true;
 }
@@ -693,6 +697,8 @@ function doWhenCheckGameSubmit() {
 	hitsList4 = [];
 	accuracyList = [];
 	checkRoundOver = true;
+	info.innerHTML = "";
+	document.getElementById("checkGameInputs").style.display = "none";
 }
  
 function startCheckGame() {
@@ -967,9 +973,12 @@ function initSearchGame(duringRound) {
 	hitsList3 = [];
 	questionList = [];
 	searchRoundOver = false;
-	if(!duringRound) {
-		for (var i = 0; i < 5; i++) {
+	
+	for (var i = 0; i < 5; i++) {
+		if(!duringRound) {
 			options[i].style.display="none";
+		} else {
+			options[i].style.display="block";
 		}
 	}
 	info.innerHTML = "";
@@ -985,6 +994,10 @@ function initCheckGame(duringRound) {
 	info.innerHTML = "";
 	if(!duringRound)
 		document.getElementById("checkGameInputs").style.display = "none";
+	else {
+		alert("init check");
+		document.getElementById("checkGameInputs").style.display = "block";
+	}	
 }
 
 function initTrackGame() {
@@ -1021,6 +1034,15 @@ function nextRound() {
 	if (u1 && u2 && u3 && u4 && u5) {
 		console.log("next round!");
 		fileName = studentID+gameName+"_"+INIT_NUM+".txt"; //保留刚结束这轮的文件名
+		var difficulty = prompt("请输入1~10的整数！\n请评价一下刚才完成的任务难度（1——10）\n1表示非常容易，5表示难度适中，10表示非常困难:","");
+		while(true) {
+			if (-1 != difficulty.search(/^([1-9]|10)$/i)) {
+				writeStr += "difficulty," + difficulty;
+				writeStr += "\r\n";
+				break;
+			} 
+			difficulty = prompt("请评价一下刚才完成的任务难度（1——10）\n1表示非常容易，5表示难度适中，10表示非常困难:","");
+		}
 		if (++round < roundTotal) {
 			INIT_NUM = brr[round];
 			shapes = [];
@@ -1050,7 +1072,7 @@ function nextRound() {
 			}
 		} else {
 			alert("Mission Complete!");
-			round--;
+			round = 0;
 			/*if (checkGamePlaying) {
 				console.log("hitsList4:", hitsList4);
 				writeList(hitsList4, "hitsList4");
