@@ -4,6 +4,25 @@ Array.prototype.contains = function ( needle ) {
   }
   return false;
 }
+Date.prototype.Format = function (fmt) {
+    var o = {
+        "M+": this.getMonth() + 1, //月份 
+        "d+": this.getDate(), //日 
+        "h+": this.getHours(), //小时 
+        "m+": this.getMinutes(), //分 
+        "s+": this.getSeconds(), //秒 
+        "q+": Math.floor((this.getMonth() + 3) / 3), //季度 
+        "S": this.getMilliseconds() //毫秒 
+    };
+    if (/(y+)/.test(fmt))
+		fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o){
+		if (new RegExp("(" + k + ")").test(fmt)) {
+			fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+		}
+    }
+    return fmt;
+}
 /* FileSaver.js
  * A saveAs() FileSaver implementation.
  * 1.3.2
@@ -211,9 +230,9 @@ var shapes = [];  //形状的对象数组
 //游戏全局变量
 var INIT_NUM = 10;  //初始复杂度
 var EACH_ROUND = 10;  //每种复杂度算一轮，一轮做10次实验
-var EACH_ROUND3 = 3;	//每轮提3个问题，必须<=7
-var discoverGamePlaying = false;
-var perceiveGamePlaying = false;
+var EACH_ROUND3 = 5;	//每轮提3个问题，必须<=7
+var DetectGamePlaying = false;
+var DiscriminateGamePlaying = false;
 var searchGamePlaying = false;
 var checkGamePlaying = false;
 var trackGamePlaying = false;
@@ -227,6 +246,7 @@ var writeStr = "";
 var fileName = "";
 var gameName = "";
 var studentID = "";
+var needToRecordStartAndEndTime = false;
 
 
 function Shape(shape, x, y, color) { //图形类
@@ -420,7 +440,7 @@ function writeList(l, listName) {
 }
 
 /*******************************
- *        Discover Game        *
+ *        Detect Game        *
  *******************************/
 function addOneShape() {
 	drawRandomly(1);
@@ -439,16 +459,16 @@ function startAppearringOne() { //开始等待增画一个图形
 	setTimeout("addOneShape();", appearDelay);
 }
 
-function endOfRound() {  //当一轮DiscoverGame结束时
+function endOfRound() {  //当一轮DetectGame结束时
 	clearTimeout(noReactionTimeout);
 	console.log("hitsList:", hitsList);
 	writeList(hitsList, "hitsList");
-	//alert("Discover Round"+(round+1)+" Finished!");
-	discoverRoundOver = true;
+	//alert("Detect Round"+(round+1)+" Finished!");
+	DetectRoundOver = true;
 }
 
 function whenTimeIsUp() {  //当被试超过规定时限未点击新增图形时的操作
-	console.log("Missed Discovering! Reaction Time: " + TIME_THRESHOLD + "ms");
+	console.log("Missed Detecting! Reaction Time: " + TIME_THRESHOLD + "ms");
 	hitsList[hitsList.length] = TIME_THRESHOLD;
 	removeOneShape(INIT_NUM);
 	if (++testCount < EACH_ROUND) {
@@ -460,7 +480,7 @@ function whenTimeIsUp() {  //当被试超过规定时限未点击新增图形时
 
 
 /*******************************
- *        Perceive Game        *
+ *        Discriminate Game        *
  *******************************/
  
 function changeOneColor() {
@@ -486,8 +506,8 @@ function endOfRound2() {
 	clearTimeout(noReactionTimeout2);
 	console.log("hitsList2:", hitsList2);
 	writeList(hitsList2, "hitsList2");
-	//alert("Perceive Round"+(round+1)+" Finished!");
-	perceiveRoundOver = true;
+	//alert("Discriminate Round"+(round+1)+" Finished!");
+	DiscriminateRoundOver = true;
 }
 
 function whenTimeIsUp2() {
@@ -668,6 +688,10 @@ function doWhenCheckGameSubmit() {
 	console.log("Check Round"+(round+1)+" Finished! Reaction Time4: " + reactionTime4.toString() + "ms");
 	//alert("Check Round"+(round+1)+" Finished!");
 	hitsList4[hitsList4.length] = reactionTime4;
+	writeList(hitsList4, "hitsList4");
+	writeList(accuracyList, "accuracyList4");
+	hitsList4 = [];
+	accuracyList = [];
 	checkRoundOver = true;
 }
  
@@ -749,7 +773,7 @@ function knightMove() {
 
 
 /*******************************
- *        Discover Game        *
+ *        Detect Game        *
  *******************************/
 var hitsList = [];
 var startTime = new Date().getTime();
@@ -758,11 +782,11 @@ var testCount = 0;
 var noReactionTimeout = undefined;
 var TIME_THRESHOLD = 5000;
 var testInterval = undefined;
-var discoverRoundOver = false;
+var DetectRoundOver = false;
 
 
-function playDiscoverGame() {
-	discoverGamePlaying = true;
+function playDetectGame() {
+	DetectGamePlaying = true;
 	
 	startAppearringOne();
 	
@@ -773,7 +797,7 @@ function playDiscoverGame() {
 		if (clickedI == INIT_NUM) { //点中了刚出现的图形
 			var hitTime = new Date().getTime();
 			var reactionTime = hitTime - startTime - appearDelay;
-			console.log("You've Discovered it! Reaction Time: " + reactionTime.toString() + "ms");
+			console.log("You've Detected it! Reaction Time: " + reactionTime.toString() + "ms");
 			hitsList[hitsList.length] = reactionTime;
 			removeOneShape(clickedI);
 			if (++testCount < EACH_ROUND) {
@@ -786,7 +810,7 @@ function playDiscoverGame() {
 }
 
 /*******************************
- *        Perceive Game        *
+ *        Discriminate Game        *
  *******************************/
 
 var whoseColorIsChanged = -1;
@@ -796,11 +820,11 @@ var appearDelay2;
 var testCount2 = 0;
 var noReactionTimeout2 = undefined;
 var TIME_THRESHOLD2 = 5000;
-var perceiveRoundOver = false;
+var DiscriminateRoundOver = false;
 
  
-function playPerceiveGame() {
-	perceiveGamePlaying = true;
+function playDiscriminateGame() {
+	DiscriminateGamePlaying = true;
 	
 	startColoringOne();
 	
@@ -811,7 +835,7 @@ function playPerceiveGame() {
 		if (clickedI == whoseColorIsChanged) { //点中了刚改变颜色的图形
 			var hitTime2 = new Date().getTime();
 			var reactionTime2 = hitTime2 - startTime2 - appearDelay2;
-			console.log("You've Perceived it! Reaction Time2: " + reactionTime2.toString() + "ms");
+			console.log("You've Discriminated it! Reaction Time2: " + reactionTime2.toString() + "ms");
 			hitsList2[hitsList2.length] = reactionTime2;
 			changeBackOneColor(whoseColorIsChanged);
 			whoseColorIsChanged = -1;
@@ -926,16 +950,16 @@ function playTrackGame() {
 
 var nextRoundInterval = undefined;
 
-function initDiscoverGame() {
+function initDetectGame() {
 	testCount = 0;
 	hitsList = [];
-	discoverRoundOver = false;
+	DetectRoundOver = false;
 }
 
-function initPerceiveGame() {
+function initDiscriminateGame() {
 	testCount2 = 0;
 	hitsList2 = [];
-	perceiveRoundOver = false;
+	DiscriminateRoundOver = false;
 }
 
 function initSearchGame(duringRound) {
@@ -984,13 +1008,13 @@ function nextRound() {
 	var u3 = false;
 	var u4 = false;
 	var u5 = false;
-	if (!discoverGamePlaying) u1 = true;
-	if (!perceiveGamePlaying) u2 = true;
+	if (!DetectGamePlaying) u1 = true;
+	if (!DiscriminateGamePlaying) u2 = true;
 	if (!searchGamePlaying) u3 = true;
 	if (!checkGamePlaying) u4 = true;
 	if (!trackGamePlaying) u5 = true;
-	if (discoverGamePlaying && discoverRoundOver) u1 = true;
-	if (perceiveGamePlaying && perceiveRoundOver) u2 = true;
+	if (DetectGamePlaying && DetectRoundOver) u1 = true;
+	if (DiscriminateGamePlaying && DiscriminateRoundOver) u2 = true;
 	if (searchGamePlaying && searchRoundOver) u3 = true;
 	if (checkGamePlaying && checkRoundOver) u4 = true;
 	if (trackGamePlaying && trackRoundOver) u5 = true;
@@ -1003,12 +1027,12 @@ function nextRound() {
 			clearCanvas();
 			drawRandomly(INIT_NUM);
 			console.log(shapes);
-			if (discoverGamePlaying) {
-				initDiscoverGame();
+			if (DetectGamePlaying) {
+				initDetectGame();
 				startAppearringOne();
 			}
-			if (perceiveGamePlaying) {
-				initPerceiveGame();
+			if (DiscriminateGamePlaying) {
+				initDiscriminateGame();
 				startColoringOne();
 			}
 			if (searchGamePlaying) {
@@ -1027,41 +1051,50 @@ function nextRound() {
 		} else {
 			alert("Mission Complete!");
 			round--;
-			if (checkGamePlaying) {
+			/*if (checkGamePlaying) {
 				console.log("hitsList4:", hitsList4);
 				writeList(hitsList4, "hitsList4");
 				console.log("accuracyList:", accuracyList);
 				writeList(accuracyList, "accuracyList4");
-			}
+			}*/
 			clearInterval(nextRoundInterval);
 			console.log("Cleared nextRoundInterval!");
 			document.getElementById("startGame").removeAttribute("disabled");
 		}
 		
 		if (writeStr.length != 0) {
+			if (needToRecordStartAndEndTime) {
+				var endGameTime = new Date();
+				writeStr += "endTime,"+endGameTime.Format("yyyy-MM-dd hh:mm:ss.S")+"\r\n";
+			}
 			var file = new File([writeStr], fileName, { type: "text/plain;charset=utf-8" });
 			saveAs(file);
-			writeStr = "";
+			if (needToRecordStartAndEndTime) {
+				startGameTime = new Date();
+				writeStr = "startTime,"+startGameTime.Format("yyyy-MM-dd hh:mm:ss.S")+"\r\n";
+			} else {
+				writeStr = "";
+			}
 		}
 	}
 }
 
-initDiscoverGame();
-initPerceiveGame();
+initDetectGame();
+initDiscriminateGame();
 initSearchGame(false);
 initCheckGame(false);
 initTrackGame();
 
 function init() {
 	shapes = [];
-	discoverGamePlaying = false;
-	perceiveGamePlaying = false;
+	DetectGamePlaying = false;
+	DiscriminateGamePlaying = false;
 	searchGamePlaying = false;
 	checkGamePlaying = false;
 	trackGamePlaying = false;
 	//所有游戏初始化
-	initDiscoverGame();
-	initPerceiveGame();
+	initDetectGame();
+	initDiscriminateGame();
 	initSearchGame(false);
 	initCheckGame(false);
 	initTrackGame();
@@ -1120,14 +1153,18 @@ function letsPlay() {
 		return;
 	}
 	init();
+	if (needToRecordStartAndEndTime) {
+		startGameTime = new Date();
+		writeStr = "startTime,"+startGameTime.Format("yyyy-MM-dd hh:mm:ss.S")+"\r\n";	
+	}
 	for (var i = 0; i < checkValues.length; i++) {
 		if (checkValues[i] == 1) {
-			playDiscoverGame();
-			gameName += "_Discover";
+			playDetectGame();
+			gameName += "_Detect";
 		}
 		if (checkValues[i] == 2) {
-			playPerceiveGame();
-			gameName += "_Perceive";
+			playDiscriminateGame();
+			gameName += "_Discriminate";
 		}
 		if (checkValues[i] == 3) {
 			playSearchGame();
